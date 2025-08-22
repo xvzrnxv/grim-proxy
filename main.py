@@ -1,34 +1,29 @@
-from flask import Flask, send_from_directory, request, Response
+from flask import Flask, request, Response, send_from_directory
 import requests
 
-app = Flask(__name__, static_folder=".", static_url_path="")
+app = Flask(__name__, static_folder="static")
 
-@app.route("/")
-def root():
-    return send_from_directory(".", "index.html")
+@app.route('/')
+def index():
+    return send_from_directory("static", "index.html")
 
-# serve static files
-@app.route("/<path:path>")
-def static_proxy(path):
-    return send_from_directory(".", path)
-
-# 🔑 iframe proxy route
-@app.route("/proxy")
+@app.route('/proxy')
 def proxy():
-    url = request.args.get("url")
-    if not url:
-        return "Missing url", 400
+    target_url = request.args.get("url")
+    if not target_url:
+        return "No URL provided", 400
 
-    resp = requests.get(url, stream=True)
-    excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
+    resp = requests.get(target_url)
+    excluded_headers = ['content-encoding', 'content-length', 'transfer-encoding', 'connection']
     headers = [(name, value) for (name, value) in resp.raw.headers.items()
                if name.lower() not in excluded_headers]
 
-    # ⚡ strip X-Frame headers so iframe works
-    headers = [(name, value) for (name, value) in headers if not name.lower().startswith("x-frame")]
-    headers = [(name, value) for (name, value) in headers if not name.lower().startswith("content-security-policy")]
+    # Strip frame-blocking headers
+    headers = [(name, value) for (name, value) in headers
+               if name.lower() not in ["x-frame-options", "content-security-policy"]]
 
-    return Response(resp.content, resp.status_code, headers)
+    response = Response(resp.content, resp.status_code, headers)
+    return response
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
