@@ -1,21 +1,33 @@
-from flask import Flask, send_from_directory, render_template_string
-import os
+from flask import Flask, request, Response, send_from_directory
+import requests, os
 
 app = Flask(__name__, static_folder="games", static_url_path="/games")
 
-# Serve index.html at /
 @app.route("/")
-def index():
+def home():
     return send_from_directory(".", "index.html")
 
-# Serve everything else from games/ folder
 @app.route("/games/<path:path>")
 def serve_games(path):
     return send_from_directory("games", path)
 
-# Fallback route for static files (images, css, js, etc.)
+@app.route("/proxy")
+def proxy():
+    target = request.args.get("url")
+    if not target:
+        return "No URL provided", 400
+
+    try:
+        r = requests.get(target, headers={"User-Agent": request.headers.get("User-Agent", "Mozilla/5.0")}, timeout=10)
+        excluded_headers = ["content-encoding", "transfer-encoding", "connection"]
+        headers = [(name, value) for (name, value) in r.headers.items() if name.lower() not in excluded_headers]
+
+        return Response(r.content, r.status_code, headers)
+    except Exception as e:
+        return f"Proxy error: {e}", 500
+
 @app.route("/<path:path>")
-def static_proxy(path):
+def static_files(path):
     return send_from_directory(".", path)
 
 if __name__ == "__main__":
