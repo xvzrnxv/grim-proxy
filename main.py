@@ -11,15 +11,14 @@ def serve_index():
 def proxy():
     target_url = request.args.get("url")
     if not target_url:
-        return "Missing ?url=", 400
-
+        return "Missing URL", 400
     try:
-        resp = requests.get(target_url, headers={"User-Agent": "Mozilla/5.0"}, stream=True, timeout=10)
-        excluded_headers = ["content-encoding", "transfer-encoding", "connection"]
-        headers = [(name, value) for name, value in resp.raw.headers.items() if name.lower() not in excluded_headers]
+        resp = requests.get(target_url, stream=True)
+        excluded_headers = ["content-encoding", "content-length", "transfer-encoding", "connection"]
+        headers = [(name, value) for (name, value) in resp.raw.headers.items() if name.lower() not in excluded_headers]
         return Response(resp.content, resp.status_code, headers)
     except Exception as e:
-        return f"Proxy error: {e}", 500
+        return f"Proxy error: {str(e)}", 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
